@@ -20,11 +20,12 @@ export interface Env {
   // MY_KV_NAMESPACE: KVNamespace;
 }
 
-// Placeholder: Retrieves an array of ArrayBuffers representing audio chunks.
-// Replace this with your actual logic to split or retrieve pre-chunked audio.
-async function getAudioChunks(): Promise<ArrayBuffer[]> {
-  const URL = "https://example.com/audio.mp3";
-  const response = await fetch(URL);
+/**
+ * Retrieves an array of ArrayBuffers representing audio chunks from the provided URL.
+ * Replace the chunking logic if you have a different requirement.
+ */
+async function getAudioChunks(audioUrl: string): Promise<ArrayBuffer[]> {
+  const response = await fetch(audioUrl);
   if (!response.ok) {
     throw new Error(`Failed to fetch audio: ${response.status}`);
   }
@@ -40,8 +41,10 @@ async function getAudioChunks(): Promise<ArrayBuffer[]> {
   return chunks;
 }
 
-// Transcribes a single audio chunk using the Whisper model.
-// Converts the chunk to Base64 and calls the AI binding.
+/**
+ * Transcribes a single audio chunk using the Whisper model.
+ * Converts the chunk to Base64 and calls the AI binding.
+ */
 async function transcribeChunk(chunkBuffer: ArrayBuffer, env: Env): Promise<string> {
   const base64 = Buffer.from(chunkBuffer, "binary").toString("base64");
   const res = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
@@ -58,7 +61,15 @@ async function transcribeChunk(chunkBuffer: ArrayBuffer, env: Env): Promise<stri
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const audioChunks: ArrayBuffer[] = await getAudioChunks();
+    // Retrieve the audio URL from the query parameters.
+    const { searchParams } = new URL(request.url);
+    const audioUrl = searchParams.get("url");
+
+    if (!audioUrl) {
+      return new Response("Missing 'url' query parameter", { status: 400 });
+    }
+
+    const audioChunks: ArrayBuffer[] = await getAudioChunks(audioUrl);
     let fullTranscript = "";
 
     for (const chunk of audioChunks) {
